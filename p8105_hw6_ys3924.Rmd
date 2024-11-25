@@ -7,6 +7,7 @@ output: github_document
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(broom)
 ```
 
 ### Problem 2
@@ -14,8 +15,26 @@ library(tidyverse)
 ```{r, warning=FALSE}
 homicide = read.csv("data/homicide-data.csv") |>
   janitor::clean_names() |>
-  mutate(city_state = paste(city, state, sep = ", ")) |>
+  mutate(city_state = paste(city, state, sep = ", "),
+         resolved = if_else(disposition == "Closed by arrest",TRUE, FALSE)) |>
   filter(!(city_state %in% c("Dallas, TX", "Phoenix, AZ", "Kansas City, MO", "Tulsa, AL")),
          victim_race %in% c("White", "Black")) |>
   mutate(victim_age = as.numeric(victim_age))
+baltimore = homicide |>
+  filter(city_state == "Baltimore, MD")
+baltimore_model = glm(resolved ~ victim_age + victim_sex + victim_race,
+                      data = baltimore,
+                      family = binomial)
+broom::tidy(baltimore_model, conf.int = TRUE) |>
+  mutate(OR = exp(estimate),
+         OR_low = exp(conf.low),
+         OR_high = exp(conf.high)) |>
+  filter(term == "victim_sexMale") |>
+  select(OR, OR_low, OR_high)
 ```
+
+The estimate of the adjusted odds ratio for solving homicides comparing male victims to female victims keeping all other variables fixed is 0.426. The corresponding CI is [0.324, 0.558].
+
+
+
+
