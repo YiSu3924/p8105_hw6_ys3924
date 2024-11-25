@@ -9,6 +9,7 @@ output: github_document
 library(tidyverse)
 library(broom)
 library(purrr)
+library(modelr)
 ```
 
 ### Problem 2
@@ -90,4 +91,23 @@ birth_weight = read.csv("data/birthweight.csv") |>
                      labels = c("absent", "present"))) |>
   drop_na()
 ```
+
+
+```{r}
+model = lm(bwt ~ smoken + ppbmi + ppwt + wtgain + gaweeks, data = birth_weight)
+birth_weight |>
+  add_predictions(model, var = "predicted_model") |>
+  add_residuals(model, var = "residuals_model") |>
+  ggplot(aes(x = predicted_model, y = residuals_model)) +
+  geom_point(alpha = 0.6) +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(title = "Residuals vs Fitted Values", x = "Fitted Values", y = "Residuals") +
+  theme_minimal()
+```
+
+I would like to predict birth weight (bwt) based on a combination of maternal and pregnancy-related factors. The model uses hypothesized predictors informed by my prior knowledge in maternal health. I include smoken, ppbmi, ppwt, wtgain, gaweeks as predictors.
+
+The residuals are scattered around 0. There is no clear evidence of heteroscedasticity. 
+
+
 
