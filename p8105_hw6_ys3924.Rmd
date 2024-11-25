@@ -94,7 +94,7 @@ birth_weight = read.csv("data/birthweight.csv") |>
 
 
 ```{r}
-model = lm(bwt ~ smoken + ppbmi + ppwt + wtgain + gaweeks, data = birth_weight)
+model = lm(bwt ~ bhead + blength + ppbmi + ppwt + wtgain, data = birth_weight)
 birth_weight |>
   add_predictions(model, var = "predicted_model") |>
   add_residuals(model, var = "residuals_model") |>
@@ -105,9 +105,47 @@ birth_weight |>
   theme_minimal()
 ```
 
-I would like to predict birth weight (bwt) based on a combination of maternal and pregnancy-related factors. The model uses hypothesized predictors informed by my prior knowledge in maternal health. I include smoken, ppbmi, ppwt, wtgain, gaweeks as predictors.
+I would like to predict birth weight (bwt) based on maternal and pregnancy-related factors. The model uses hypothesized predictors informed by my prior knowledge in maternal health. I include bhead, blength, ppbmi, ppwt, wtgain as predictors.
 
 The residuals are scattered around 0. There is no clear evidence of heteroscedasticity. 
 
+```{r}
+model2 = lm(bwt ~ blength + gaweeks, 
+            data = birth_weight)
+model3 = lm(bwt ~ bhead * blength * babysex, 
+            data = birth_weight)
+```
 
 
+```{r}
+set.seed(1)
+cv_df = 
+  crossv_mc(birth_weight, 100) |>
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble)) |>
+  mutate(
+    model = map(train, \(df) lm(bwt ~ bhead + blength + ppbmi + ppwt + wtgain, data = df)),
+    model2 = map(train, \(df) lm(bwt ~ blength + gaweeks, data = df)),
+    model3 = map(train, \(df) lm(bwt ~ bhead * blength * babysex, data = df))) |> 
+  mutate(
+    rmse = map2_dbl(model, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse2 = map2_dbl(model2, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse3 = map2_dbl(model3, test, \(mod, df) rmse(model = mod, data = df)))
+cv_df |> 
+  select(starts_with("rmse")) |> 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") |> 
+  ggplot(aes(x = model, y = rmse)) + 
+  geom_violin() +
+  labs(
+    title = "rmse comparison of models",
+    x = "model",
+    y = "rmse"
+  )
+```
+
+According to above violin plot, my model (rmse) shows the lowest median rmse, which suggests better predictive accuracy, while model 2 (rmse2) has the highest median, which indicates less consistent performance. Model 3 (rmse3) falls between the previous two models. Overall, my model appears to perform the best due to its lower rmse values.
