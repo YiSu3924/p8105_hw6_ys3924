@@ -30,12 +30,12 @@ weather_df =
 ```{r}
 set.seed(1)
 create_bootstrap_sample = function(data) {
-  data |> sample_frac(size = 1, replace = TRUE)
-}
+  data |> 
+    sample_frac(size = 1, replace = TRUE)}
 bootstrap_samples = tibble(bootstrap_id = 1:5000) |>
-  mutate(data_sample = map(bootstrap_id, ~create_bootstrap_sample(weather_df)))
-extract_bootstrap_metrics = function(data_sample) {
-  model = lm(tmax ~ tmin, data = data_sample)
+  mutate(sample = map(bootstrap_id, ~create_bootstrap_sample(weather_df)))
+extract_bootstrap_metrics = function(sample) {
+  model = lm(tmax ~ tmin, data = sample)
   r_squared = model |>
     broom::glance() |>
     dplyr::pull(r.squared)
@@ -45,10 +45,48 @@ extract_bootstrap_metrics = function(data_sample) {
 }
 bootstrap_results = bootstrap_samples |>
   mutate(
-    metrics = map(data_sample, extract_bootstrap_metrics)
+    result = map(sample, extract_bootstrap_metrics)
   ) |>
-  unnest(metrics)
+  unnest(result)
 ```
+
+```{r}
+r_squared = pull(bootstrap_results, r_squared)
+log_beta_product = pull(bootstrap_results, log_beta_product)
+r_squared_ci = quantile(r_squared, probs = c(0.025, 0.975))
+log_beta_product_ci = quantile(log_beta_product, probs = c(0.025, 0.975))
+# CI for R_squared
+r_squared_ci
+# CI for beta_0*beta_1
+log_beta_product_ci
+```
+
+```{r}
+bootstrap_results |>
+  ggplot(aes(x = r_squared)) +
+  geom_density() +
+  labs(
+    title = "Bootstrap Distribution of R_squared",
+    x = "R_squared",
+    y = "Density") +
+  theme_minimal()
+```
+
+The above plot indicates that the model explains approximately 88% to 94% of the variance, with a peak around 91%.
+
+```{r}
+bootstrap_results |>
+  ggplot(aes(x = log_beta_product)) +
+  geom_density() +
+  labs(
+    title = "Bootstrap Distribution of beta_0 * beta_1",
+    x = "beta_0 * beta_1",
+    y = "Density") +
+  theme_minimal()
+```
+
+The above plot shows that the values are concentrated between 1.95 and 2.10, with a peak near 2.02. The product of the coefficients remains stable across bootstrap samples, which reflects consistent model performance.
+
 
 ### Problem 2
 
