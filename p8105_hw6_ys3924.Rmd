@@ -12,6 +12,44 @@ library(purrr)
 library(modelr)
 ```
 
+### Problem 1
+
+```{r, message=FALSE, warning=FALSE}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+```{r}
+set.seed(1)
+create_bootstrap_sample = function(data) {
+  data |> sample_frac(size = 1, replace = TRUE)
+}
+bootstrap_samples = tibble(bootstrap_id = 1:5000) |>
+  mutate(data_sample = map(bootstrap_id, ~create_bootstrap_sample(weather_df)))
+extract_bootstrap_metrics = function(data_sample) {
+  model = lm(tmax ~ tmin, data = data_sample)
+  r_squared = model |>
+    broom::glance() |>
+    dplyr::pull(r.squared)
+  coefficients = coef(model)
+  log_beta_product = log(coefficients[1] * coefficients[2])
+  tibble(r_squared = r_squared, log_beta_product = log_beta_product)
+}
+bootstrap_results = bootstrap_samples |>
+  mutate(
+    metrics = map(data_sample, extract_bootstrap_metrics)
+  ) |>
+  unnest(metrics)
+```
+
 ### Problem 2
 
 ```{r, warning=FALSE}
